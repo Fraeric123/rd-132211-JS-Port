@@ -843,6 +843,7 @@
                 this.renderer = new THREE.WebGLRenderer({ antialias: false });
                 this.renderer.setSize(this.width, this.height);
                 this.renderer.setClearColor(this.fogColor);
+                this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
                 document.body.appendChild(this.renderer.domElement);
                 window.addEventListener('resize', () => {
                     this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -851,7 +852,7 @@
                 });
 
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(this.fogColor, 0.02);
+                this.scene.fog = new THREE.FogExp2(this.fogColor, 0.01);
                 this.selectionMaterial = new THREE.MeshBasicMaterial({
                     color: 0xffffff,
                     transparent: true,
