@@ -9,3 +9,4 @@ JS Port of minecraft version rd-132211 with three.js as renderer
 * R     - Random Teleport
 * LMB   - Destroy block
 * RMB   - Place block
+* Space - Jump
