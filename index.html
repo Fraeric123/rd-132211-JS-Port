@@ -851,7 +851,22 @@
                 });
 
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(this.fogColor, 0.05);
+                this.scene.fog = new THREE.FogExp2(this.fogColor, 0.02);
+                this.selectionMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.4,
+                    side: THREE.DoubleSide,
+                    depthWrite: false,
+                    depthTest: true,
+                    polygonOffset: true,
+                    polygonOffsetFactor: -1,
+                    polygonOffsetUnits: -1
+                });
+                this.selectionMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.002, 1.002), this.selectionMaterial);
+                this.selectionMesh.visible = false;
+                this.selectionMesh.renderOrder = 999;
+                this.scene.add(this.selectionMesh);
                 this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.05, 1000.0);
 
                 this.level = new Level(256, 256, 64);
@@ -863,40 +878,122 @@
                 this.render();
             }
 
+            saveLevel() {
+                const blocks = this.level.blocks;
+                const data = [];
+
+                data.push(this.level.width, this.level.height, this.level.depth);
+
+                let currentType = blocks[0];
+                let count = 0;
+
+                for (let i = 0; i < blocks.length; i++) {
+                    if (blocks[i] === currentType && count < 255) {
+                        count++;
+                    } else {
+                        data.push(currentType, count);
+                        currentType = blocks[i];
+                        count = 1;
+                    }
+                }
+                data.push(currentType, count);
+
+                const buffer = new Uint8Array(data.length);
+                buffer.set(data);
+
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'save.rdworld';
+                link.click();
+
+                console.log(`world saved`);
+            }
+
+            loadLevel() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.rdworld';
+                input.onchange = e => {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        const data = new Uint8Array(event.target.result);
+                        const w = data[0];
+                        const h = data[1];
+                        const d = data[2];
+
+                        let blockIndex = 0;
+                        for (let i = 3; i < data.length; i += 2) {
+                            const type = data[i];
+                            const count = data[i + 1];
+                            for (let j = 0; j < count; j++) {
+                                this.level.blocks[blockIndex++] = type;
+                            }
+                        }
+                        this.level.calcLightDepths(0, 0, this.level.width, this.level.height);
+                        this.levelRenderer.allChanged();
+                        console.log(`world loaded`);
+                    };
+                    reader.readAsArrayBuffer(file);
+                };
+                input.click();
+            }
+
             pick(distance = 5.0) {
                 const start = new THREE.Vector3().copy(this.camera.position);
                 const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion).normalize();
 
-                let t = 0.0;
-                const step = 0.05;
+                let x = Math.floor(start.x);
+                let y = Math.floor(start.y);
+                let z = Math.floor(start.z);
 
-                while (t < distance) {
-                    const p = start.clone().add(dir.clone().multiplyScalar(t));
-                    const ix = Math.floor(p.x);
-                    const iy = Math.floor(p.y);
-                    const iz = Math.floor(p.z);
+                const stepX = dir.x > 0 ? 1 : -1;
+                const stepY = dir.y > 0 ? 1 : -1;
+                const stepZ = dir.z > 0 ? 1 : -1;
 
-                    if (this.level.isSolidTile(ix, iy, iz)) {
-                        const cx = ix + 0.5;
-                        const cy = iy + 0.5;
-                        const cz = iz + 0.5;
+                const tDeltaX = Math.abs(1 / dir.x);
+                const tDeltaY = Math.abs(1 / dir.y);
+                const tDeltaZ = Math.abs(1 / dir.z);
 
-                        const dx = p.x - cx;
-                        const dy = p.y - cy;
-                        const dz = p.z - cz;
+                let tMaxX = (dir.x > 0 ? (x + 1 - start.x) : (start.x - x)) * tDeltaX;
+                let tMaxY = (dir.y > 0 ? (y + 1 - start.y) : (start.y - y)) * tDeltaY;
+                let tMaxZ = (dir.z > 0 ? (z + 1 - start.z) : (start.z - z)) * tDeltaZ;
 
-                        let f = 0;
-                        if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > Math.abs(dz)) {
-                            f = dy > 0 ? 1 : 0;
-                        } else if (Math.abs(dx) > Math.abs(dz)) {
-                            f = dx > 0 ? 5 : 4;
-                        } else {
-                            f = dz > 0 ? 3 : 2;
-                        }
+                let f = -1;
+                let dist = 0;
 
-                        return { x: ix, y: iy, z: iz, f: f };
+                while (dist < distance) {
+                    if (this.level.isSolidTile(x, y, z)) {
+                        return { x: x, y: y, z: z, f: f };
                     }
-                    t += step;
+
+                    if (tMaxX < tMaxY) {
+                        if (tMaxX < tMaxZ) {
+                            dist = tMaxX;
+                            tMaxX += tDeltaX;
+                            x += stepX;
+                            f = stepX > 0 ? 4 : 5;
+                        } else {
+                            dist = tMaxZ;
+                            tMaxZ += tDeltaZ;
+                            z += stepZ;
+                            f = stepZ > 0 ? 2 : 3;
+                        }
+                    } else {
+                        if (tMaxY < tMaxZ) {
+                            dist = tMaxY;
+                            tMaxY += tDeltaY;
+                            y += stepY;
+                            f = stepY > 0 ? 0 : 1;
+                        } else {
+                            dist = tMaxZ;
+                            tMaxZ += tDeltaZ;
+                            z += stepZ;
+                            f = stepZ > 0 ? 2 : 3;
+                        }
+                    }
                 }
                 return null;
             }
@@ -942,6 +1039,15 @@
                     }
                 });
 
+                window.addEventListener('keydown', (e) => {
+                    if (e.code === 'Enter') {
+                        this.saveLevel();
+                    }
+                    if (e.code === 'Insert') {
+                        this.loadLevel();
+                    }
+                });
+
                 window.addEventListener('contextmenu', e => e.preventDefault());
             }
 
@@ -958,6 +1064,26 @@
                 }
 
                 this.moveCameraToPlayer();
+
+                const hit = this.pick(5.0);
+                if (hit) {
+                    this.selectionMesh.visible = true;
+
+                    this.selectionMesh.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
+                    this.selectionMesh.rotation.set(0, 0, 0);
+
+                    const offset = 0.501;
+                    if (hit.f === 0) { this.selectionMesh.position.y -= offset; this.selectionMesh.rotation.x = Math.PI / 2; }
+                    if (hit.f === 1) { this.selectionMesh.position.y += offset; this.selectionMesh.rotation.x = Math.PI / 2; }
+                    if (hit.f === 2) { this.selectionMesh.position.z -= offset; }
+                    if (hit.f === 3) { this.selectionMesh.position.z += offset; }
+                    if (hit.f === 4) { this.selectionMesh.position.x -= offset; this.selectionMesh.rotation.y = Math.PI / 2; }
+                    if (hit.f === 5) { this.selectionMesh.position.x += offset; this.selectionMesh.rotation.y = Math.PI / 2; }
+
+                    this.selectionMaterial.opacity = 0.2 + Math.sin(performance.now() * 0.01) * 0.1;
+                } else {
+                    this.selectionMesh.visible = false;
+                }
 
                 this.levelRenderer.render(this.player, 0);
                 this.levelRenderer.render(this.player, 1);
