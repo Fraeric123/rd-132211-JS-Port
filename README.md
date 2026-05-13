@@ -1,4 +1,4 @@
-# 🧱 rd-132211 JS Port
+# rd-132211 JS Port
 
 JS Port of minecraft version rd-132211 with three.js as renderer
 
