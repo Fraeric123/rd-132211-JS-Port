@@ -430,8 +430,8 @@
         }
 
         class Tile {
-            static rock = new Tile(0);
-            static grass = new Tile(1);
+            static grass = new Tile(0);
+            static rock = new Tile(1);
 
             constructor(tex) {
                 this.tex = tex;
@@ -591,11 +591,12 @@
                     for (let y = this.y0; y < this.y1; y++) {
                         for (let z = this.z0; z < this.z1; z++) {
                             if (this.level.isTile(x, y, z)) {
-                                const isGrass = y > 42 || y < 42;
-                                if (!isGrass) {
-                                    Tile.rock.render(this.t, this.level, layer, x, y, z);
-                                } else {
+                                const grassLevel = this.level.depth * 2 / 3
+                                const isGrass = (y < grassLevel && y > grassLevel - 1);
+                                if (isGrass) {
                                     Tile.grass.render(this.t, this.level, layer, x, y, z);
+                                } else {
+                                    Tile.rock.render(this.t, this.level, layer, x, y, z);
                                 }
                             }
                         }
