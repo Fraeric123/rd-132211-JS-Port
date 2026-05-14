@@ -139,13 +139,6 @@
         }
 
         class HitResult {
-            /**
-             * @param {number} x - X souřadnice zasaženého bloku
-             * @param {number} y - Y souřadnice zasaženého bloku
-             * @param {number} z - Z souřadnice zasaženého bloku
-             * @param {number} o - Typ objektu (v RD-132211 většinou 0 pro blok)
-             * @param {number} f - "Face" (strana) bloku, na kterou se díváme (0-5)
-             */
             constructor(x, y, z, o, f) {
                 this.x = x;
                 this.y = y;
@@ -249,7 +242,7 @@
             }
 
             getBrightness(x, y, z) {
-                const dark = 0.8;
+                const dark = 0.5;
                 const light = 1.0;
                 if (x < 0 || y < 0 || z < 0 || x >= this.width || y >= this.depth || z >= this.height) {
                     return light;
@@ -358,7 +351,7 @@
 
         class Tesselator {
             constructor() {
-                this.MAX_VERTICES = 100000;
+                this.MAX_VERTICES = 30000;
 
                 this.vertexArray = new Float32Array(this.MAX_VERTICES * 3);
                 this.texCoordArray = new Float32Array(this.MAX_VERTICES * 2);
@@ -598,8 +591,7 @@
                     for (let y = this.y0; y < this.y1; y++) {
                         for (let z = this.z0; z < this.z1; z++) {
                             if (this.level.isTile(x, y, z)) {
-                                const isGrass = y > (this.level.depth * 2) / 3;
-
+                                const isGrass = y > 42 || y < 42;
                                 if (!isGrass) {
                                     Tile.rock.render(this.t, this.level, layer, x, y, z);
                                 } else {
@@ -684,6 +676,7 @@
             }
 
             tick(camera) {
+                console.log(this.x, this.y, this.z)
                 this.xo = this.x;
                 this.yo = this.y;
                 this.zo = this.z;
@@ -699,7 +692,7 @@
                 if (this.keys['ArrowRight'] || this.keys['KeyD']) xa += 1.0;
 
                 if (this.keys['Space'] && this.onGround) {
-                    this.yd = 0.47;
+                    this.yd = 0.5;
                 }
                 if (xa !== 0 || za !== 0) {
                     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
@@ -852,7 +845,7 @@
                 });
 
                 this.scene = new THREE.Scene();
-                this.scene.fog = new THREE.FogExp2(this.fogColor, 0.01);
+                //this.scene.fog = new THREE.FogExp2(this.fogColor, 0.01);
                 this.selectionMaterial = new THREE.MeshBasicMaterial({
                     color: 0xffffff,
                     transparent: true,
@@ -883,7 +876,9 @@
                 const blocks = this.level.blocks;
                 const data = [];
 
-                data.push(this.level.width, this.level.height, this.level.depth);
+                data.push((this.level.width >> 8) & 0xFF, this.level.width & 0xFF);
+                data.push((this.level.height >> 8) & 0xFF, this.level.height & 0xFF);
+                data.push((this.level.depth >> 8) & 0xFF, this.level.depth & 0xFF);
 
                 let currentType = blocks[0];
                 let count = 0;
@@ -921,12 +916,18 @@
                     const reader = new FileReader();
                     reader.onload = event => {
                         const data = new Uint8Array(event.target.result);
-                        const w = data[0];
-                        const h = data[1];
-                        const d = data[2];
+
+                        const w = (data[0] << 8) | data[1];
+                        const h = (data[2] << 8) | data[3];
+                        const d = (data[4] << 8) | data[5];
+
+                        if (w !== this.level.width || h !== this.level.height || d !== this.level.depth) {
+                            console.error("Rozměry světa neodpovídají!");
+                            return;
+                        }
 
                         let blockIndex = 0;
-                        for (let i = 3; i < data.length; i += 2) {
+                        for (let i = 6; i < data.length; i += 2) {
                             const type = data[i];
                             const count = data[i + 1];
                             for (let j = 0; j < count; j++) {
@@ -1112,8 +1113,6 @@
 
         const game = new RubyDung();
         game.init();
-
-
     </script>
 </body>
 
