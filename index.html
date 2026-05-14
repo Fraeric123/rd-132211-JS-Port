@@ -154,6 +154,17 @@
                 this.height = h;
                 this.depth = d;
 
+                this.texture = Textures.loadTexture("./textures/terrain.png");
+                this.texture.flipY = true;
+                this.texture.magFilter = THREE.NearestFilter;
+                this.texture.minFilter = THREE.NearestFilter;
+                this.material = new THREE.MeshBasicMaterial({
+                    map: this.texture,
+                    vertexColors: true,
+                    transparent: true,
+                    alphaTest: 0.5
+                });
+
                 this.blocks = new Uint8Array(w * h * d);
                 this.lightDepths = new Int32Array(w * h);
                 this.levelListeners = [];
@@ -415,6 +426,7 @@
 
                 const geometry = new THREE.BufferGeometry();
 
+
                 geometry.setAttribute('position', new THREE.BufferAttribute(this.vertexArray.slice(0, this.vertices * 3), 3));
 
                 if (this.hasTexture) {
@@ -424,6 +436,9 @@
                 if (this.hasColor) {
                     geometry.setAttribute('color', new THREE.BufferAttribute(this.colorArray.slice(0, this.vertices * 3), 3));
                 }
+
+                geometry.computeBoundingSphere();
+                geometry.computeBoundingBox();
 
                 return geometry;
             }
@@ -562,17 +577,8 @@
 
                 this.t = new Tesselator();
 
-                this.texture = Textures.loadTexture("./textures/terrain.png");
-
-                this.texture.flipY = true;
-                this.texture.magFilter = THREE.NearestFilter;
-                this.texture.minFilter = THREE.NearestFilter;
-                this.material = new THREE.MeshBasicMaterial({
-                    map: this.texture,
-                    vertexColors: true,
-                    transparent: true,
-                    alphaTest: 0.5
-                });
+                this.texture = level.texture;
+                this.material = level.material;
 
                 this.meshes = [new THREE.Mesh(), new THREE.Mesh()];
                 this.meshes.forEach(m => m.frustumCulled = true);
@@ -725,7 +731,6 @@
 
                 this.xd *= groundFriction;
                 this.zd *= groundFriction;
-                this.zd *= 0.91;
                 this.yd *= 0.98;
             }
 
