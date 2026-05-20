@@ -1083,7 +1083,7 @@
                     this.selectionMesh.position.set(hit.x + 0.5, hit.y + 0.5, hit.z + 0.5);
                     this.selectionMesh.rotation.set(0, 0, 0);
 
-                    const offset = 0.500;
+                    const offset = 0.5;
                     if (hit.f === 0) { this.selectionMesh.position.y -= offset; this.selectionMesh.rotation.x = Math.PI / 2; }
                     if (hit.f === 1) { this.selectionMesh.position.y += offset; this.selectionMesh.rotation.x = Math.PI / 2; }
                     if (hit.f === 2) { this.selectionMesh.position.z -= offset; }
